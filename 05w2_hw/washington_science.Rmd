@@ -1,0 +1,176 @@
+---
+title: "w2hw"
+author: "Jin"
+date: "2026-11-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(tidyverse)
+library(sf)
+library(janitor)
+```
+```{r}
+SchoolData <- read_csv(
+  "/Users/claudiahuang1101/Desktop/CASA0005 GIS&Science/05w2/Report_Card_Assessment_Data_2018-19_School_Year_20241008.csv"
+)
+
+names(SchoolData)
+```
+```{r}
+SchoolData <- clean_names(SchoolData)
+names(SchoolData)
+```
+```{r}
+SchoolData %>% distinct(test_subject)
+
+SchoolData %>% distinct(organization_level)
+
+SchoolData %>% distinct(student_group_type, student_group)
+
+SchoolData %>% distinct(grade_level)
+
+SchoolData %>% distinct(test_administration)
+```
+```{r}
+ScienceData <- SchoolData %>%
+  filter(
+    test_subject == "Science",
+    student_group == "All Students",
+    grade_level == "All Grades"
+  )
+
+ScienceData %>%
+  distinct(organization_level, test_administration)
+```
+```{r}
+ScienceSchools <- ScienceData %>%
+  filter(organization_level == "School")
+
+ScienceSchools %>%
+  dplyr::select(
+    county,
+    school_name,
+    test_administration,
+    suppression,
+    count_of_students_expected_to_test,
+    count_met_standard
+  ) %>%
+  head()
+```
+```{r}
+ScienceSchools <- ScienceSchools %>%
+  mutate(
+    count_of_students_expected_to_test =
+      parse_number(count_of_students_expected_to_test, na = "NULL"),
+    count_met_standard =
+      parse_number(count_met_standard, na = "NULL")
+  )
+
+ScienceSchools %>%
+  dplyr::select(
+    count_of_students_expected_to_test,
+    count_met_standard
+  ) %>%
+  head()
+```
+```{r}
+CountyScience <- ScienceSchools %>%
+  filter(
+    !is.na(count_of_students_expected_to_test),
+    !is.na(count_met_standard),
+    count_of_students_expected_to_test > 0
+  ) %>%
+  group_by(county) %>%
+  summarise(
+    expected = sum(count_of_students_expected_to_test),
+    met = sum(count_met_standard)
+  ) %>%
+  mutate(percent_met = met / expected * 100)
+
+CountyScience
+```
+```{r}
+StateScience <- ScienceData %>%
+  filter(organization_level == "State") %>%
+  mutate(
+    count_of_students_expected_to_test =
+      parse_number(count_of_students_expected_to_test, na = "NULL"),
+    count_met_standard =
+      parse_number(count_met_standard, na = "NULL")
+  ) %>%
+  dplyr::select(
+    test_administration,
+    count_of_students_expected_to_test,
+    count_met_standard
+  )
+
+StateScience
+```
+```{r}
+StateAverage <- StateScience %>%
+  summarise(
+    expected = sum(count_of_students_expected_to_test),
+    met = sum(count_met_standard)
+  ) %>%
+  mutate(state_percent = met / expected * 100)
+
+StateAverage
+```
+```{r}
+CountyScience <- CountyScience %>%
+  mutate(
+    state_diff = percent_met - StateAverage$state_percent,
+    state_compare = case_when(
+      state_diff > 0 ~ "Above state average",
+      state_diff < 0 ~ "Below state average",
+      state_diff == 0 ~ "Equal to state average"
+    )
+  )
+
+CountyScience %>%
+  group_by(state_compare) %>%
+  summarise(counties = n())
+```
+```{r}
+WashingtonMap <- st_read(
+  "/Users/claudiahuang1101/Desktop/CASA0005 GIS&Science/05w2/Week 2 Homework boundaries-20261105/Washington_Counties_with_Natural_Shoreline___washsh_area.shp"
+)
+
+WashingtonMap <- clean_names(WashingtonMap)
+
+names(WashingtonMap)
+```
+```{r}
+WashingtonScienceMap <- WashingtonMap %>%
+  left_join(CountyScience, by = "county")
+
+WashingtonScienceMap %>%
+  filter(is.na(percent_met)) %>%
+  dplyr::select(county)
+```
+```{r}
+WashingtonScienceMap <- WashingtonMap %>%
+  mutate(county = str_to_title(county)) %>%
+  left_join(CountyScience, by = "county")
+
+WashingtonScienceMap %>%
+  filter(is.na(percent_met)) %>%
+  dplyr::select(county)
+```
+```{r}
+library(tmap)
+tmap_mode("plot")
+
+tm_shape(WashingtonScienceMap) +
+  tm_polygons(
+    fill = "state_compare",
+    fill.legend = tm_legend(title = "Compared with state average")
+  ) +
+  tm_title("Science attainment, Washington, 2018–19")
+```
+
+The statewide science attainment rate was 46.58% in 2018–19, combining WCAS and AIM assessments across all grades. Based on available school-level counts, 21 counties were above this benchmark and 18 were below it. School records with suppressed or missing counts were excluded from both the numerator and denominator, so county rates may differ from rates based on complete data.
