@@ -15,7 +15,8 @@ library(janitor)
 ```
 ```{r}
 SchoolData <- read_csv(
-  "/Users/claudiahuang1101/Desktop/CASA0005 GIS&Science/05w2/Report_Card_Assessment_Data_2018-19_School_Year_20241008.csv"
+  "science_all_students_2018_19.csv",
+  col_types = cols(.default = col_character())
 )
 
 names(SchoolData)
@@ -137,7 +138,7 @@ CountyScience %>%
 ```
 ```{r}
 WashingtonMap <- st_read(
-  "/Users/claudiahuang1101/Desktop/CASA0005 GIS&Science/05w2/Week 2 Homework boundaries-20261105/Washington_Counties_with_Natural_Shoreline___washsh_area.shp"
+  "Week 2 Homework boundaries-20261105/Washington_Counties_with_Natural_Shoreline___washsh_area.shp"
 )
 
 WashingtonMap <- clean_names(WashingtonMap)
@@ -173,4 +174,5 @@ tm_shape(WashingtonScienceMap) +
   tm_title("Science attainment, Washington, 2018–19")
 ```
 
-The statewide science attainment rate was 46.58% in 2018–19, combining WCAS and AIM assessments across all grades. Based on available school-level counts, 21 counties were above this benchmark and 18 were below it. School records with suppressed or missing counts were excluded from both the numerator and denominator, so county rates may differ from rates based on complete data.
+Data: The included CSV is a subset of Report_Card_Assessment_Data_2018-19_School_Year_20241008.csv, downloaded from the course materials. Column names were cleaned using clean_names(), and records were retained where test_subject = "Science", student_group = "All Students", and grade_level = "All Grades". All other columns and organization levels were retained. County boundaries are supplied in the accompanying “Week 2 Homework boundaries-20261105” folder.
+To reproduce: Install tidyverse, sf, janitor and tmap (version 4 or later), keep the supplied files together, and Knit washington_science.Rmd to HTML.
