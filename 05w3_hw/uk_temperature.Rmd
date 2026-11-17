@@ -1,0 +1,104 @@
+---
+title: "Week 3 UK temperature"
+author: "Jin"
+date: "2026-11-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(sf)
+library(tidyverse)
+library(terra)
+```
+```{r}
+library(here)
+
+```
+
+```{r}
+WorldCities <- st_read(
+  here("05w3_hw", "World_Cities", "World_Cities.shp")
+)
+
+names(WorldCities)
+```
+```{r}
+UKcities <- WorldCities %>%
+  filter(CNTRY_NAME == "United Kingdom") %>%
+  st_transform(4326)
+
+UKcities$CITY_NAME
+```
+```{r}
+temp126 <- terra::rast(
+  here("05w3_hw", "UK_tmax_ssp126.tif")
+)
+
+temp126
+```
+```{r}
+temp585 <- terra::rast(
+  here("05w3_hw", "UK_tmax_ssp585.tif")
+)
+
+temp585
+```
+```{r}
+samples <- st_coordinates(UKcities)
+
+citytemp126 <- terra::extract(temp126, samples)
+citytemp585 <- terra::extract(temp585, samples)
+
+citytemp126
+```
+```{r}
+citydiff <- citytemp585 - citytemp126
+
+citydiff <- citydiff %>%
+  mutate(City = UKcities$CITY_NAME) %>%
+  dplyr::select(City, everything())
+
+citydiff
+```
+```{r}
+citydiff_long <- citydiff %>%
+  pivot_longer(
+    cols = starts_with("tmax"),
+    names_to = "Month",
+    values_to = "Difference"
+  )
+
+citydiff_long
+```
+```{r}
+citysummary <- citydiff_long %>%
+  group_by(City) %>%
+  summarise(
+    Mean = mean(Difference),
+    Median = median(Difference),
+    Min = min(Difference),
+    Max = max(Difference),
+    SD = sd(Difference)
+  )
+
+citysummary
+```
+```{r}
+hist(
+  citydiff_long$Difference,
+  main = "UK monthly temperature differences, 2081–2100",
+  xlab = "SSP5-8.5 minus SSP1-2.6 (°C)",
+  col = "lightblue"
+)
+```
+
+Results
+
+Using the ACCESS-CM2 model at 2.5 arc-minute resolution, monthly mean maximum temperatures for 2081–2100 were higher under SSP5-8.5 than SSP1-2.6 at all 15 selected UK locations in every month.
+
+The mean difference across the 12 months ranged from 2.58°C in Belfast to 3.21°C in Birmingham. London's mean difference was 3.02°C. Across all locations and months, differences ranged from 1.9°C to 4.8°C.
+
+These statistics describe differences between two future scenarios, rather than changes from present-day temperatures. The standard deviations describe variation across the 12 monthly differences, rather than uncertainty across climate models. The results represent temperatures at the sampled points, rather than averages over entire cities.
