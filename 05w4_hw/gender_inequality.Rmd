@@ -1,0 +1,116 @@
+---
+title: "Week 4 Gender Inequality"
+author: "Jin"
+date: "2026-11-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(sf)
+library(tidyverse)
+library(here)
+```
+
+```{r}
+GenderData <- read_csv(
+  here("05w4_hw", "HDR25_Composite_indices_complete_time_series.csv")
+)
+
+head(names(GenderData), 20)
+```
+```{r}
+GenderData %>%
+  dplyr::select(iso3, country, gii_2010, gii_2019) %>%
+  head()
+```
+```{r}
+WorldMap <- st_read(
+  here("05w4_hw", "world_countries.geojson")
+)
+
+names(WorldMap)
+```
+```{r}
+WorldMap %>%
+  st_drop_geometry() %>%
+  dplyr::select(COUNTRY, ISO) %>%
+  head()
+```
+```{r}
+library(countrycode)
+
+WorldMap <- WorldMap %>%
+  mutate(
+    iso3 = countrycode(ISO, "iso2c", "iso3c")
+  )
+
+WorldMap %>%
+  st_drop_geometry() %>%
+  dplyr::select(COUNTRY, ISO, iso3) %>%
+  head()
+```
+```{r}
+GenderChange <- GenderData %>%
+  dplyr::select(iso3, country, gii_2010, gii_2019) %>%
+  mutate(gii_change = gii_2019 - gii_2010)
+
+WorldGender <- WorldMap %>%
+  left_join(GenderChange, by = "iso3")
+
+WorldGender %>%
+  st_drop_geometry() %>%
+  dplyr::select(COUNTRY, gii_2010, gii_2019, gii_change) %>%
+  head()
+```
+```{r}
+nrow(WorldGender)
+
+GenderChange %>%
+  filter(!is.na(gii_2010), !is.na(gii_2019)) %>%
+  anti_join(st_drop_geometry(WorldMap), by = "iso3") %>%
+  dplyr::select(iso3, country)
+```
+```{r}
+nrow(WorldGender)
+
+GenderChange %>%
+  filter(
+    nchar(iso3) == 3,
+    !is.na(gii_2010),
+    !is.na(gii_2019)
+  ) %>%
+  anti_join(st_drop_geometry(WorldMap), by = "iso3") %>%
+  dplyr::select(iso3, country)
+```
+```{r}
+WorldGender %>%
+  dplyr::select(COUNTRY, iso3, gii_2010, gii_2019, gii_change) %>%
+  st_write(
+    here("05w4_hw", "gender_inequality_change.geojson"),
+    delete_dsn = TRUE
+  )
+```
+```{r}
+SavedMap <- st_read(
+  here("05w4_hw", "gender_inequality_change.geojson")
+)
+
+nrow(SavedMap)
+names(SavedMap)
+```
+
+Data and method
+
+Gender Inequality Index (GII) data for 2010 and 2019 were obtained from the UNDP HDR25 composite indices time-series dataset. World boundaries were obtained from Esri's World Countries Generalized dataset. Country codes were converted from ISO two-letter to three-letter codes using the countrycode package before joining the datasets.
+
+The new variable, gii_change, equals GII in 2019 minus GII in 2010. Negative values indicate lower gender inequality in 2019; positive values indicate higher inequality. Missing values were retained rather than replaced with zero.
+
+The output retains all 251 boundary features. All countries with three-letter codes and non-missing GII values in both years matched a boundary feature.
+
+Reproduction
+
+Install sf, tidyverse, here, countrycode, and rmarkdown. Keep the supplied folder structure, open RStudio at the repository root, and Knit gender_inequality.Rmd. The analysis creates gender_inequality_change.geojson, containing the boundaries, country codes, GII values for both years, and their difference.
